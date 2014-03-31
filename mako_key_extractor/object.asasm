@@ -1,0 +1,31 @@
+; See sprite_to_object in extract.py
+
+script
+ sinit
+  refid "{name}/init"
+  body
+   maxstack 2
+   localcount 1
+   initscopedepth 1
+   maxscopedepth 8
+   code
+    getlocal0
+    pushscope
+
+    getscopeobject      0
+    getlex              QName(PackageNamespace(""), "Object")
+    pushscope
+
+    getlex              QName(PackageNamespace(""), "Object")
+    newclass            "{name}"
+    popscope
+    initproperty        QName(PackageNamespace(""), "{name}")
+
+    returnvoid
+   end ; code
+  end ; body
+ end ; method
+ trait class QName(PackageNamespace(""), "{name}") slotid 1
+  #include "{name}.class.asasm"
+ end ; trait
+end ; script

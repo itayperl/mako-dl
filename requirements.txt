@@ -1,0 +1,12 @@
+argparse==1.2.1
+astroid==1.0.0
+beautifulsoup4==4.3.1
+chardet==2.1.1
+logilab-common==0.60.0
+lxml==3.2.3
+flvlib==0.1.12
+pycrypto==2.6
+requests==1.2.3
+wsgiref==0.1.2
+progressbar==2.3
+git+https://github.com/itayperl/mimms2

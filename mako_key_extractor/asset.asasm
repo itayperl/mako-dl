@@ -1,0 +1,94 @@
+; This class is a fake ByteArrayAsset, since redtamarin can't read a real asset.
+; The class is a simple ByteArray subclass. Its constructor decodes a *hardcoded* 
+; base64 string and fills the ByteArray with the result.
+; Template variables: {name} - class name.
+;                     {data} - Base64-encoded binary data.
+
+script
+ sinit
+  refid "{name}/init"
+  body
+   maxstack 2
+   localcount 1
+   initscopedepth 1
+   maxscopedepth 4
+   code
+    getlocal0
+    pushscope
+
+    ; Initialize a ByteArray subclass
+    getscopeobject      0
+    getlex              QName(PackageNamespace(""), "Object")
+    pushscope
+
+    getlex              QName(PackageNamespace("flash.utils"), "ByteArray")
+    pushscope
+
+    getlex              QName(PackageNamespace("flash.utils"), "ByteArray")
+    newclass            "{name}"
+    popscope
+    popscope
+    initproperty        QName(PackageNamespace(""), "{name}")
+
+    returnvoid
+   end ; code
+  end ; body
+ end ; method
+ trait class QName(PackageNamespace(""), "{name}") slotid 1
+  class
+   refid "{name}"
+   instance QName(PackageNamespace(""), "{name}")
+    extends QName(PackageNamespace("flash.utils"), "ByteArray")
+    flag SEALED
+    flag PROTECTEDNS
+    protectedns ProtectedNamespace("{name}")
+    iinit
+     refid "{name}/instance/init"
+     body
+      maxstack 4
+      localcount 3
+      initscopedepth 6
+      maxscopedepth 7
+      code
+       ; Instance constructor:
+       getlocal0
+       constructsuper      0
+       ; Decode base64 string into a new ByteArray
+       getlex              QName(PackageNamespace("com.hurlant.util"), "Base64")
+       pushstring          "{data}"
+       callproperty        QName(PackageNamespace(""), "decodeToByteArray"), 1
+       setlocal1
+       ; this.writeBytes(decoded)
+       getlocal0
+       getlocal1
+       callpropvoid        Multiname("writeBytes", [PackageNamespace("")]), 1
+       ; Rewind
+       getlocal0
+       pushint             0
+       setproperty         QName(PackageNamespace(""), "position")
+  
+       returnvoid
+      end ; code
+     end ; body
+    end ; method
+   end ; instance
+   cinit
+    refid "{name}/class/init"
+    body
+     maxstack 4
+     localcount 3
+     initscopedepth 5
+     maxscopedepth 6
+     code
+      getlocal0
+      pushscope
+  
+      returnvoid
+     end ; code
+    end ; body
+   end ; method
+  end ; class
+
+ end ; trait
+end ; script
+

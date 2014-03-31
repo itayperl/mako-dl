@@ -1,0 +1,44 @@
+#version 3
+program
+ minorversion 16
+ majorversion 46
+
+ #include "com/hurlant/util/Base64.script.asasm"
+
+ ; ByteArrayAssets
+ #include "_a_---.script.asasm"
+ #include "_a_-_-__.script.asasm"
+ #include "_a_-_.script.asasm"
+
+ ; Code
+ #include "_a_-_-_.script.asasm"
+ #include "_a_-_---.script.asasm"
+
+ script ; 0
+  sinit
+   name ""
+   refid "entry"
+   body
+    maxstack 3
+    localcount 2
+    initscopedepth 1
+    maxscopedepth 2
+    code
+     getlocal0
+     pushscope
+     ; From function sdhfgsd (yeah...) in logic/payment/PaymentManager:
+     ; _a_-_---._a_--_--(0x37628093) returns the key in Base64
+     getlex              Multiname("_a_-_---", [PackageNamespace("")])
+     pushint             -1820302793
+     callproperty        Multiname("_a_--_--", [PackageNamespace("")]), 1
+     setlocal1
+     findpropstrict      Multiname("print", [PackageNamespace("")])
+     getlocal1
+     callproperty        Multiname("print", [PackageNamespace("")]), 1
+     returnvoid
+    end ; code
+   end ; body
+  end ; method
+ end ; script
+
+end ; program
