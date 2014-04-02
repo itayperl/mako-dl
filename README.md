@@ -5,7 +5,7 @@ Download episodes from the Mako VOD service
 
 Dependencies
 ------------
-* libmms is a dependency for some stream (non-HDS streams).
+* libmms is a dependency for some streams (non-HDS streams).
 * Python dependencies can be installed by running `pip install -r requirements.txt`.
 
 Example usage
