@@ -14,7 +14,7 @@ import itertools
 #   http://sourceforge.net/apps/mediawiki/osmf.adobe/index.php?title=Flash_Media_Manifest_(F4M)_File_Format
 
 def get_xml_document(url, session):
-    resp = session.get(url)
+    resp = session.get(url, params=session.params)
     resp.raise_for_status()
     return BeautifulSoup(resp.content, 'xml')
 
@@ -64,7 +64,7 @@ def download_fragment(frag_url, session):
     status = None
     attempts = 3
     while status != httplib.OK and attempts > 0:
-        resp = session.get(frag_url, stream=True)
+        resp = session.get(frag_url, params=session.params, stream=True)
         status = resp.status_code
         attempts -= 1
 
