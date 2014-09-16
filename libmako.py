@@ -65,7 +65,7 @@ def decrypt(encrypted, key):
 def get_playlist(vcmid, channelId):
     # vcmid is video ID
     url = PLAYER_CONFIG['VODAsxUrl'].replace('$$vcmid$$', vcmid).replace('$$videoChannelId$$', channelId)
-    return decrypt(requests.get(url).content, PLAYLIST_KEY)
+    return urllib.unquote_plus(decrypt(requests.get(url).content, PLAYLIST_KEY))
 
 def get_akamai_ticket(vcmid):
     # Without this the service still returns a token, but it doesn't work.
@@ -123,7 +123,7 @@ def download_wmv(video_data, output):
     if title == 'CastUP WMV Player':
         pl_url = video_data['wmvUrl']
     elif title == 'Silverlight Detection':
-        clipurl = urllib.unquote(re.search('var linkSkip = .*clipurl=([^"]+)', iframe_html).group(1))
+        clipurl = urllib.unquote_plus(re.search('var linkSkip = .*clipurl=([^"]+)', iframe_html).group(1))
 
         # This is cruel! A random-length part from the end of the ticket ID
         # is removed and added at the beginning (before the first '|')
