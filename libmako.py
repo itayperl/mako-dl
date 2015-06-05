@@ -3,6 +3,7 @@ from bs4 import BeautifulSoup
 import argparse
 import sys
 import subprocess
+import progressbar
 import re
 import collections
 import os
@@ -89,22 +90,55 @@ def show_programs(programs):
     for p in programs:
         print '%s%s' % (p['url'].ljust(max_col_width + 2), p['title'])
 
-def download_hds(video_data, output):
+def download_hls(session, manifest_url, output):
+    m3u8 = session.get(manifest_url, params=session.params).content
+    # highest resolution is last
+    best_res = m3u8.splitlines()[-1]
+
+    url = session.get(best_res, params=session.params).content
+    chunks = [ line for line in url.splitlines() if not line.startswith('#') ]
+    pbar_widgets = ['Downloading: ', progressbar.Percentage(), ' ', progressbar.Bar(), 
+                  ' ', progressbar.ETA(), ]
+    pb = progressbar.ProgressBar(widgets=pbar_widgets, maxval=len(chunks)).start()
+
+    with open(output, 'w') as fp:
+        for i, chunk in enumerate(chunks, 1):
+            pb.update(i)
+            fp.write(session.get(chunk).content)
+
+    pb.finish()
+
+def download_akamai(video_data, output):
     filename = os.path.join(output, '%s.flv' % (video_data['title'], ))
     if os.path.exists(filename):
         return
 
     playlist = BeautifulSoup(get_playlist(video_data['guid'], video_data['chId']), 'xml')
-    manifest_url = playlist.find(['ref','Ref'], provider='AKAMAI_HDS')['href']
+
+    ref = playlist.find(['ref','Ref'], provider='AKAMAI_HDS')
+    if ref:
+        hds = True
+    else:
+        hds = False
+        ref = playlist.find(['ref','Ref'], provider='AKAMAI_HLS')
+
+    manifest_url = ref['href']
     ticket = get_akamai_ticket(video_data['guid'])
-    logger.debug('download_hds filename=%s url=%s ticket=%s', filename, manifest_url, ticket)
 
     session = requests.Session()
     # hdcore is required for some streams
     session.params = ticket + '&g=SJSXARWUAXKF&hdcore=3.0.3'
-    f4v.download(manifest_url, filename, session=session, progress=True)
+    session.headers['User-Agent'] = USER_AGENT
+
+    if hds:
+        logger.debug('download_hds filename=%s url=%s ticket=%s', filename, manifest_url, ticket)
+        f4v.download(manifest_url, filename, session=session, progress=True)
+    else:
+        logger.debug('download_hls filename=%s url=%s ticket=%s', filename, manifest_url, ticket)
+        download_hls(session, manifest_url, filename)
 
 def download_wmv(video_data, output):
+    logging.debug('download_wmv')
     filename = os.path.join(output, '%s.wmv' % (video_data['title'], ))
     if os.path.exists(filename):
         return
@@ -151,7 +185,7 @@ def do_video(video_data, download=False, output='.', silent=False):
         if video_data['videoFormat'] == '1':
             download_wmv(video_data, output)
         else:
-            download_hds(video_data, output)
+            download_akamai(video_data, output)
 
 def do_episodes(program_data, selection, download=False, output='.'):
     print program_data['title']
