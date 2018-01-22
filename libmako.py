@@ -37,7 +37,7 @@ def fix_asx(asx):
 def load_config():
     VOD_CONFIG_URL = 'http://www.mako.co.il/html/flash_swf/VODConfig.xml'
     # The player now loads configNew.xml which is identical
-    PLAYER_CONFIG_URL = 'http://rcs.mako.co.il/flash_swf/players/makoPlayer/config.xml'
+    PLAYER_CONFIG_URL = 'http://rcs.mako.co.il/flash_swf/players/makoPlayer/configNew.xml'
 
     vod_config_raw = requests.get(VOD_CONFIG_URL).content
     # Fix broken XML
@@ -51,7 +51,7 @@ def load_config():
         VOD_CONFIG[key] = urlparse.urljoin(BASE_URL, url)
 
     player_config = BeautifulSoup(requests.get(PLAYER_CONFIG_URL).content, 'xml')
-    for key in ('VODAsxUrl', 'PaymentService'):
+    for key in ('VODAsxUrl', 'PlaylistUrl', 'PaymentService'):
         url = player_config.find(key).text.strip()
         PLAYER_CONFIG[key] = urlparse.urljoin(BASE_URL, url)
 
@@ -63,22 +63,22 @@ def decrypt(encrypted, key):
     # trim padding
     return decrypted[:-ord(decrypted[-1])]
 
-def get_playlist(vcmid, channelId):
-    # vcmid is video ID
-    url = PLAYER_CONFIG['VODAsxUrl'].replace('$$vcmid$$', vcmid).replace('$$videoChannelId$$', channelId)
-    return urllib.unquote_plus(decrypt(requests.get(url).content, PLAYLIST_KEY))
+def get_playlist(vcmid, channelId, galleryChId):
+    url = PLAYER_CONFIG['PlaylistUrl'].replace('$$vcmid$$', vcmid).replace('$$videoChannelId$$', channelId).replace('$$galleryChannelId$$', galleryChId)
+    return requests.get(url).json()
 
-def get_akamai_ticket(vcmid):
+def get_ticket(vcmid, url):
     # Without this the service still returns a token, but it doesn't work.
     headers = { 'Referer': 'http://www.mako.co.il/html/flash_swf/makoTVLoader.swf' }
 
     resp = requests.post(PLAYER_CONFIG['PaymentService'], headers=headers,
-                         data=dict(et='ev',
+                         data=dict(et='gt',
                                    dv=vcmid,
+                                   lp=urlparse.urlparse(url).path,
                                    du=str(uuid.uuid1()),
-                                   rv='akamai'))
+                                   rv='CASTTIME'))
 
-    payment_info = json.loads(urllib.unquote_plus(decrypt(resp.content, PAYMENT_SERVICE_KEY)))
+    payment_info = json.loads(resp.content)
     logger.debug('Payment info: %r', payment_info)
     return urllib.unquote(payment_info['tickets'][0]['ticket'])
 
@@ -91,12 +91,18 @@ def show_programs(programs):
         print '%s%s' % (p['url'].ljust(max_col_width + 2), p['title'])
 
 def download_hls(session, manifest_url, output):
-    m3u8 = session.get(manifest_url, params=session.params).content
-    # highest resolution is last
-    best_res = m3u8.splitlines()[-1]
+    def parse_m3u8(text):
+        if '#' not in text:
+            return text.decode('base64')
+        else:
+            return text
 
-    url = session.get(best_res, params=session.params).content
-    chunks = [ line for line in url.splitlines() if not line.startswith('#') ]
+    m3u8 = parse_m3u8(session.get(manifest_url, params=session.params).content)
+    # highest resolution is last
+    best_res = urlparse.urljoin(manifest_url, m3u8.splitlines()[-1])
+
+    url = parse_m3u8(session.get(best_res, params=session.params).content)
+    chunks = [ urlparse.urljoin(manifest_url, line) for line in url.splitlines() if not line.startswith('#') ]
     pbar_widgets = ['Downloading: ', progressbar.Percentage(), ' ', progressbar.Bar(), 
                   ' ', progressbar.ETA(), ]
     pb = progressbar.ProgressBar(widgets=pbar_widgets, maxval=len(chunks)).start()
@@ -108,34 +114,22 @@ def download_hls(session, manifest_url, output):
 
     pb.finish()
 
-def download_akamai(video_data, output):
+def download_casttime(video_data, output):
     filename = os.path.join(output, '%s.flv' % (video_data['title'], ))
     if os.path.exists(filename):
         return
 
-    playlist = BeautifulSoup(get_playlist(video_data['guid'], video_data['chId']), 'xml')
+    playlist = get_playlist(video_data['guid'], video_data['chId'], video_data['galleryChId'])
+    manifest_url = [ m for m in playlist['media'] if m['format'] == 'CASTTIME_HLS' ][0]['url']
 
-    ref = playlist.find(['ref','Ref'], provider='AKAMAI_HDS')
-    if ref:
-        hds = True
-    else:
-        hds = False
-        ref = playlist.find(['ref','Ref'], provider='AKAMAI_HLS')
-
-    manifest_url = ref['href']
-    ticket = get_akamai_ticket(video_data['guid'])
+    ticket = get_ticket(video_data['guid'], manifest_url)
 
     session = requests.Session()
-    # hdcore is required for some streams
-    session.params = ticket + '&g=SJSXARWUAXKF&hdcore=3.0.3'
+    session.params = ticket
     session.headers['User-Agent'] = USER_AGENT
 
-    if hds:
-        logger.debug('download_hds filename=%s url=%s ticket=%s', filename, manifest_url, ticket)
-        f4v.download(manifest_url, filename, session=session, progress=True)
-    else:
-        logger.debug('download_hls filename=%s url=%s ticket=%s', filename, manifest_url, ticket)
-        download_hls(session, manifest_url, filename)
+    logger.debug('download_hls filename=%s url=%s ticket=%s', filename, manifest_url, ticket)
+    download_hls(session, manifest_url, filename)
 
 def download_wmv(video_data, output):
     logging.debug('download_wmv')
@@ -185,7 +179,7 @@ def do_video(video_data, download=False, output='.', silent=False):
         if video_data['videoFormat'] == '1':
             download_wmv(video_data, output)
         else:
-            download_akamai(video_data, output)
+            download_casttime(video_data, output)
 
 def do_episodes(program_data, selection, download=False, output='.'):
     print program_data['title']
