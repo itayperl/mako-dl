@@ -71,12 +71,16 @@ def get_ticket(vcmid, url):
     # Without this the service still returns a token, but it doesn't work.
     headers = { 'Referer': 'http://www.mako.co.il/html/flash_swf/makoTVLoader.swf' }
 
+    config = requests.get('https://www.mako.co.il/makotv/config.json').json()
+    app_id = config["defaults"]["mako-appid"]["ww"]
+
     resp = requests.post(PLAYER_CONFIG['PaymentService'], headers=headers,
                          data=dict(et='gt',
                                    dv=vcmid,
                                    lp=urlparse.urlparse(url).path,
                                    du=str(uuid.uuid1()),
-                                   rv='CASTTIME'))
+                                   rv='CASTTIME',
+                                   da=app_id))
 
     payment_info = json.loads(resp.content)
     logger.debug('Payment info: %r', payment_info)
